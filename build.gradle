@@ -1,0 +1,174 @@
+/*
+ * Copyright (c) 2014 Secretaria de Orçamento Federal.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ * ------------------------------------------------------------------------------
+ * Distribuído sob a Licença Apache, Versão 2.0 (a "Licença"); você não pode
+ * utilizar este arquivo exceto em observância da Licença. Você pode obter uma
+ * cópia da licença em
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Exceto quando exigido por lei ou contrato escrito, qualquer software
+ * distribuído sob a Licença o é feito SEM QUAISQUER GARANTIAS OU CONDIÇÕES
+ * DE QUALQUER TIPO, sejam expressas ou implícitas. Leia a Licença para obter
+ * informações específicas sob governança de permissões e limitações sob
+ * a Licença.
+ */
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath group: 'org.hibernate.build.gradle', name: 'gradle-maven-publish-auth', version: '2.0.+'
+    }
+}
+
+// Supported languages
+apply plugin: 'groovy'
+
+// IDE plugins
+apply plugin: 'idea'
+apply plugin: 'eclipse'
+
+// Artifact publication plugins
+apply plugin: 'maven-publish'
+apply plugin: 'maven-publish-auth'
+
+configure(project) {
+    // Project information
+    version = '1.0.0.SNAPSHOT'
+    group = 'br.gov.siop.rs'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+
+configurations {
+    provided
+}
+
+defaultTasks 'build'
+
+repositories {
+    mavenLocal()
+
+    maven {
+        name 'SIOP Third-party Releases'
+        url 'http://drep01:8080/nexus/content/groups/third-party-repos/'
+    }
+
+    mavenCentral()
+}
+
+dependencies {
+    // Groovy runtime
+    compile group: 'org.codehaus.groovy', name: 'groovy', version: '2.3.6', classifier: 'indy'
+
+    provided group: 'javax.ws.rs', name: 'javax.ws.rs-api', version: '2.0.1'
+    provided group: 'javax.servlet', name: 'javax.servlet-api', version: '3.1.0'
+
+    // Test dependencies
+    testCompile group: 'org.spockframework', name: 'spock-core', version: '0.7-groovy-2.0'
+}
+
+sourceSets {
+    main {
+        compileClasspath += configurations.provided
+        test.compileClasspath += configurations.provided
+        test.runtimeClasspath += configurations.provided
+    }
+}
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.allSource
+}
+
+publishing {
+
+    repositories {
+        maven {
+            if (project.version.endsWith("SNAPSHOT")) {
+                name 'Snapshots'
+                url 'http://drep01:8080/nexus/content/repositories/snapshots/'
+            } else {
+                name 'Releases'
+                url 'http://drep01:8080/nexus/content/repositories/releases/'
+            }
+        }
+    }
+
+    publications {
+        maven(MavenPublication) {
+            from components.java
+
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('name',          'SIOP Webservices commons library.')
+                root.appendNode('description',   'A set of utilities for web services creation.')
+                root.appendNode('organization',  'Secretaria de Orçamento Federal, Brazil')
+                root.appendNode('url',           'http://www.siop.gov.br')
+                root.appendNode('inceptionYear', '2014')
+
+                def license = root.appendNode('licenses').appendNode('license')
+                license.appendNode('name',          'Apache License, Version 2.0')
+                license.appendNode('url',           'http://www.apache.org/licenses/LICENSE-2.0')
+                license.appendNode('distribution',  'repo')
+
+                def developers = root.appendNode('developers')
+
+                // Developers
+                def eduribeiro = developers.appendNode('developer')
+                eduribeiro.appendNode('id',     'eduribeiro')
+                eduribeiro.appendNode('name',   'Carlos Eduardo Melo')
+                eduribeiro.appendNode('email',  'carlos.e.melo@planejamento.gov.br')
+            }
+
+            artifact sourceJar {
+                classifier 'source'
+            }
+        }
+    }
+}
+
+compileGroovy {
+    groovyOptions.metaClass.optionMap = {[
+            indy: true,
+            encoding: "UTF-8"
+    ]}
+}
+
+compileTestGroovy {
+    groovyOptions.metaClass.optionMap = {[
+            indy: true,
+            encoding: "UTF-8"
+    ]}
+}
+
+idea {
+    project {
+        jdkName = '1.8'
+        languageLevel = '1.8'
+    }
+
+    module {
+        jdkName = '1.8'
+
+        scopes.PROVIDED.plus += [configurations.provided]
+
+        downloadJavadoc = true
+        downloadSources = true
+    }
+}
